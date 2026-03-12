@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FuelRoute — Journey Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0d0e11;
+    --surface: #16181d;
+    --card: #1c1f27;
+    --border: #2a2e3a;
+    --accent: #f4a115;
+    --accent2: #e05c2a;
+    --text: #ecedf0;
+    --muted: #6b7280;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --road: #252830;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated road background */
+  .road-bg {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 180px;
+    background: var(--road);
+    z-index: 0;
+    overflow: hidden;
+  }
+  .road-bg::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: -100%;
+    width: 300%;
+    height: 4px;
+    background: repeating-linear-gradient(90deg, var(--accent) 0, var(--accent) 40px, transparent 40px, transparent 80px);
+    animation: roadMove 1.2s linear infinite;
+    transform: translateY(-50%);
+  }
+  .road-bg::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, transparent, var(--accent2), var(--accent), transparent);
+    opacity: 0.6;
+  }
+  @keyframes roadMove {
+    from { transform: translateX(0) translateY(-50%); }
+    to { transform: translateX(80px) translateY(-50%); }
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 220px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: fadeDown 0.7s ease both;
+  }
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #000;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.3rem 0.8rem;
+    border-radius: 2px;
+    letter-spacing: 0.15em;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-family: 'Bebas Neue', cursive;
+    font-size: clamp(3.5rem, 9vw, 7rem);
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+    background: linear-gradient(135deg, #fff 40%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 1rem;
+    margin-top: 0.75rem;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+  }
+
+  /* Vehicle Selector */
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .vehicle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .vehicle-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 0.75rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .vehicle-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .vehicle-card.active {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, rgba(244,161,21,0.12), rgba(224,92,42,0.08));
+    box-shadow: 0 0 20px rgba(244,161,21,0.2);
+  }
+  .vehicle-card.active::after {
+    content: '✓';
+    position: absolute;
+    top: 6px; right: 8px;
+    font-size: 0.65rem;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .vehicle-icon { font-size: 2rem; margin-bottom: 0.4rem; }
+  .vehicle-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.2rem;
+  }
+  .vehicle-eff {
+    font-size: 0.65rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Form Grid */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+  @media (max-width: 560px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .input-wrap {
+    display: flex;
+    align-items: center;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .input-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(244,161,21,0.1);
+  }
+  input[type="number"], input[type="text"] {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.7rem 0.9rem;
+    width: 100%;
+  }
+  input[type="number"]::-webkit-inner-spin-button { display: none; }
+  .unit-badge {
+    background: var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    padding: 0 0.75rem;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    border-left: 1px solid var(--border);
+  }
+
+  /* Custom efficiency override */
+  .custom-eff-row {
+    animation: fadeUp 0.4s ease both;
+    margin-bottom: 1rem;
+  }
+
+  /* Calculate button */
+  .calc-btn {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #000;
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.4rem;
+    letter-spacing: 0.1em;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+  .calc-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(244,161,21,0.35);
+  }
+  .calc-btn:active { transform: translateY(0); }
+
+  /* Results */
+  .results {
+    display: none;
+    margin-top: 2rem;
+    animation: fadeUp 0.5s ease both;
+  }
+  .results.show { display: block; }
+
+  .results-header {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.8rem;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .stat-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .stat-value {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 2.2rem;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stat-unit {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    margin-top: 0.2rem;
+  }
+
+  /* Fuel gauge */
+  .gauge-wrap {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .gauge-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .gauge-track {
+    height: 14px;
+    background: var(--bg);
+    border-radius: 99px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .gauge-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--success), var(--accent), var(--danger));
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 0%;
+  }
+  .gauge-marks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.4rem;
+  }
+  .gauge-mark {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+  }
+
+  /* Trip advice */
+  .advice-box {
+    background: linear-gradient(135deg, rgba(244,161,21,0.08), rgba(224,92,42,0.05));
+    border: 1px solid rgba(244,161,21,0.25);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    margin-top: 0.75rem;
+  }
+  .advice-icon { font-size: 1.3rem; flex-shrink: 0; }
+  .advice-text {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .advice-text strong { color: var(--accent); font-weight: 600; }
+
+  /* Error */
+  .error-msg {
+    display: none;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    color: var(--danger);
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+  }
+  .error-msg.show { display: block; }
+
+  /* Animations */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+  }
+
+  .reset-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    padding: 0.4rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="road-bg"></div>
+
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-badge">⛽ Fuel Route</div>
+    <h1>Journey<br>Calculator</h1>
+    <p class="subtitle">Know your fuel. Own your road.</p>
+  </header>
+
+  <!-- Vehicle Selector -->
+  <div class="section-label">① Select Your Vehicle</div>
+  <div class="vehicle-grid" id="vehicleGrid">
+    <div class="vehicle-card active" data-eff="15" onclick="selectVehicle(this)">
+      <div class="vehicle-icon">🚗</div>
+      <div class="vehicle-name">Sedan</div>
+      <div class="vehicle-eff">~15 km/L</div>
+    </div>
+    <div class="vehicle-card" data-eff="12" onclick="selectVehicle(this)">
+      <div class="vehicle-icon">🚙</div>
+      <div class="vehicle-name">SUV</div>
+      <div class="vehicle-eff">~12 km/L</div>
+    </div>
+    <div class="vehicle-card" data-eff="8" onclick="selectVehicle(this)">
+      <div class="vehicle-icon">🚐</div>
+      <div class="vehicle-name">Van / MPV</div>
+      <div class="vehicle-eff">~8 km/L</div>
+    </div>
+    <div class="vehicle-card" data-eff="35" onclick="selectVehicle(this)">
+      <div class="vehicle-icon">🏍️</div>
+      <div class="vehicle-name">Motorcycle</div>
+      <div class="vehicle-eff">~35 km/L</div>
+    </div>
+    <div class="vehicle-card" data-eff="6" onclick="selectVehicle(this)">
+      <div class="vehicle-icon">🚛</div>
+      <div class="vehicle-name">Truck</div>
+      <div class="vehicle-eff">~6 km/L</div>
+    </div>
+    <div class="vehicle-card" data-eff="20" onclick="selectVehicle(this)">
+      <div class="vehicle-icon">🚕</div>
+      <div class="vehicle-name">Hybrid</div>
+      <div class="vehicle-eff">~20 km/L</div>
+    </div>
+    <div class="vehicle-card" data-eff="custom" onclick="selectVehicle(this)">
+      <div class="vehicle-icon">⚙️</div>
+      <div class="vehicle-name">Custom</div>
+      <div class="vehicle-eff">Set yours</div>
+    </div>
+  </div>
+
+  <!-- Custom efficiency input -->
+  <div class="custom-eff-row" id="customEffRow" style="display:none;">
+    <div class="section-label">Custom Fuel Efficiency</div>
+    <div class="form-grid" style="margin-bottom:0;">
+      <div class="field">
+        <label>Your Vehicle's Efficiency</label>
+        <div class="input-wrap">
+          <input type="number" id="customEff" placeholder="e.g. 13" min="1" max="100"/>
+          <span class="unit-badge">km / Litre</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- Inputs -->
+  <div class="section-label">② Enter Journey Details</div>
+  <div class="form-grid">
+    <div class="field">
+      <label>Total Distance</label>
+      <div class="input-wrap">
+        <input type="number" id="distance" placeholder="e.g. 250" min="1"/>
+        <span class="unit-badge">km</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Fuel Price</label>
+      <div class="input-wrap">
+        <input type="number" id="fuelPrice" placeholder="e.g. 95" min="0.01" step="0.01"/>
+        <span class="unit-badge">₹ / Litre</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Current Fuel in Tank</label>
+      <div class="input-wrap">
+        <input type="number" id="currentFuel" placeholder="e.g. 20" min="0"/>
+        <span class="unit-badge">Litres</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Tank Capacity (optional)</label>
+      <div class="input-wrap">
+        <input type="number" id="tankCap" placeholder="e.g. 45" min="1"/>
+        <span class="unit-badge">Litres</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="error-msg" id="errorMsg">⚠️ Please fill in Distance and Fuel Price to continue.</div>
+
+  <button class="calc-btn" onclick="calculate()">
+    🚦 Calculate Journey
+  </button>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <hr class="divider"/>
+    <div class="results-header">
+      📊 Trip Summary
+      <button class="reset-btn" onclick="resetAll()" style="margin-left:auto;">↺ Reset</button>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Fuel Required</div>
+        <div class="stat-value" id="resFuel">—</div>
+        <div class="stat-unit">LITRES</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Trip Cost</div>
+        <div class="stat-value" id="resCost">—</div>
+        <div class="stat-unit">RUPEES</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Extra Fuel Needed</div>
+        <div class="stat-value" id="resExtra">—</div>
+        <div class="stat-unit">LITRES TO FILL</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Extra Cost</div>
+        <div class="stat-value" id="resExtraCost">—</div>
+        <div class="stat-unit">TO SPEND AT PUMP</div>
+      </div>
+    </div>
+
+    <!-- Fuel gauge -->
+    <div class="gauge-wrap" id="gaugeWrap" style="display:none;">
+      <div class="gauge-label">
+        <span>Current Tank Level</span>
+        <span id="gaugePercent" style="color:var(--accent); font-size:0.8rem;"></span>
+      </div>
+      <div class="gauge-track">
+        <div class="gauge-fill" id="gaugeFill"></div>
+      </div>
+      <div class="gauge-marks">
+        <span class="gauge-mark">E</span>
+        <span class="gauge-mark">¼</span>
+        <span class="gauge-mark">½</span>
+        <span class="gauge-mark">¾</span>
+        <span class="gauge-mark">F</span>
+      </div>
+    </div>
+
+    <!-- Advice -->
+    <div class="advice-box" id="adviceBox">
+      <div class="advice-icon" id="adviceIcon">💡</div>
+      <div class="advice-text" id="adviceText"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let selectedEff = 15;
+
+  function selectVehicle(el) {
+    document.querySelectorAll('.vehicle-card').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    const eff = el.dataset.eff;
+    if (eff === 'custom') {
+      document.getElementById('customEffRow').style.display = 'block';
+      selectedEff = null;
+    } else {
+      document.getElementById('customEffRow').style.display = 'none';
+      selectedEff = parseFloat(eff);
+    }
+    hideResults();
+  }
+
+  function hideResults() {
+    document.getElementById('results').classList.remove('show');
+    document.getElementById('errorMsg').classList.remove('show');
+  }
+
+  function calculate() {
+    // Get efficiency
+    let eff = selectedEff;
+    if (eff === null) {
+      eff = parseFloat(document.getElementById('customEff').value);
+      if (!eff || eff <= 0) {
+        showError('Please enter a valid custom fuel efficiency.');
+        return;
+      }
+    }
+
+    const distance = parseFloat(document.getElementById('distance').value);
+    const fuelPrice = parseFloat(document.getElementById('fuelPrice').value);
+    const currentFuel = parseFloat(document.getElementById('currentFuel').value) || 0;
+    const tankCap = parseFloat(document.getElementById('tankCap').value) || null;
+
+    if (!distance || !fuelPrice || distance <= 0 || fuelPrice <= 0) {
+      showError('⚠️ Please fill in Distance and Fuel Price to continue.');
+      return;
+    }
+
+    document.getElementById('errorMsg').classList.remove('show');
+
+    // Calculations
+    const fuelNeeded = distance / eff;
+    const totalCost = fuelNeeded * fuelPrice;
+    const extraFuel = Math.max(0, fuelNeeded - currentFuel);
+    const extraCost = extraFuel * fuelPrice;
+
+    // Populate stats
+    document.getElementById('resFuel').textContent = fuelNeeded.toFixed(1);
+    document.getElementById('resCost').textContent = '₹' + totalCost.toFixed(0);
+    document.getElementById('resExtra').textContent = extraFuel > 0 ? extraFuel.toFixed(1) : '0';
+    document.getElementById('resExtraCost').textContent = extraFuel > 0 ? '₹' + extraCost.toFixed(0) : '₹0';
+
+    // Gauge
+    if (tankCap && tankCap > 0) {
+      const pct = Math.min(100, (currentFuel / tankCap) * 100);
+      document.getElementById('gaugeWrap').style.display = 'block';
+      document.getElementById('gaugePercent').textContent = pct.toFixed(0) + '% full';
+      setTimeout(() => {
+        document.getElementById('gaugeFill').style.width = pct + '%';
+      }, 100);
+    } else {
+      document.getElementById('gaugeWrap').style.display = 'none';
+    }
+
+    // Advice
+    let advice = '', icon = '💡';
+    const canComplete = currentFuel >= fuelNeeded;
+
+    if (canComplete) {
+      icon = '✅';
+      advice = `<strong>You're good to go!</strong> Your current ${currentFuel}L is enough to cover the full ${distance}km journey. You'll have <strong>${(currentFuel - fuelNeeded).toFixed(1)}L</strong> left on arrival.`;
+    } else if (extraFuel < 5) {
+      icon = '⚠️';
+      advice = `You only need <strong>${extraFuel.toFixed(1)} more litres</strong> — a quick top-up before you go. Cost: <strong>₹${extraCost.toFixed(0)}</strong>.`;
+    } else {
+      icon = '⛽';
+      advice = `You'll need to fill up <strong>${extraFuel.toFixed(1)} litres</strong> before or during your trip, costing approximately <strong>₹${extraCost.toFixed(0)}</strong>. Consider filling the full tank for peace of mind.`;
+    }
+
+    if (distance > 500) {
+      advice += ' <br/><br/>🗺️ <strong>Long trip tip:</strong> Plan rest stops every 2–3 hours and check tyre pressure before you leave.';
+    }
+
+    document.getElementById('adviceIcon').textContent = icon;
+    document.getElementById('adviceText').innerHTML = advice;
+
+    document.getElementById('results').classList.add('show');
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  function resetAll() {
+    ['distance','fuelPrice','currentFuel','tankCap','customEff'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('gaugeFill').style.width = '0%';
+    hideResults();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
